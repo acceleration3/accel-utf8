@@ -22,6 +22,120 @@ namespace accel
 				}
 				return (result == 0) ? 1 : ((result > 4) ? 4 : result);
 			}
+
+			inline std::string narrow(const std::wstring& wide_string)
+			{
+				std::string string;
+
+				for (std::size_t i = 0; i < wide_string.length(); i++)
+				{
+					wchar_t wide_char = wide_string[i];
+
+					// Check if surrogate pair
+					if ((wide_char & 0xFC00) == 0xD800)
+					{
+						wchar_t pair_high = wide_char;
+						wchar_t pair_low = wide_string[i + 1];
+
+						unsigned int codepoint = 0x10000 + ((pair_high & 0x03FF) << 10) + (pair_low & 0x03FF);
+
+						string += static_cast<char>(0xF0 | (codepoint >> 18));
+						string += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+						string += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+						string += static_cast<char>(0x80 | (codepoint & 0x3F));
+
+						i++;
+					}
+					else
+					{
+						if (wide_char < 0x80)
+						{
+							string += static_cast<char>(wide_char);
+						}
+						else if (wide_char < 0x800)
+						{
+							string += static_cast<char>(0xC0 | (wide_char >> 6));
+							string += static_cast<char>(0x80 | (wide_char & 0x3F));
+						}
+						else if (wide_char < 0x10000)
+						{
+							string += static_cast<char>(0xE0 | (wide_char >> 12));
+							string += static_cast<char>(0x80 | ((wide_char >> 6) & 0x3F));
+							string += static_cast<char>(0x80 | (wide_char & 0x3F));
+						}
+					}
+				}
+
+				return string;
+			}
+		
+			inline std::wstring widen(const std::string& string)
+			{
+				std::wstring wide_string;
+				wide_string.reserve(string.length());
+
+				for (std::size_t i = 0; i < string.length();) 
+				{
+					std::uint32_t codepoint = string[i];
+					std::size_t bytes_read = 0;
+
+					if ((codepoint & 0b10000000) == 0b00000000) 
+					{
+						bytes_read = 1;
+					}
+					else if ((codepoint & 0b11100000) == 0b11000000)
+					{
+						codepoint &= 0b00011111;
+						bytes_read = 2;
+					}
+					else if ((codepoint & 0b11110000) == 0b11100000) 
+					{
+						codepoint &= 0b00001111;
+						bytes_read = 3;
+					}
+					else if ((codepoint & 0b11111000) == 0b11110000)
+					{
+						codepoint &= 0b00000111;
+						bytes_read = 4;
+					}
+					else 
+					{
+						throw std::invalid_argument("Invalid UTF-8 sequence");
+					}
+
+					for (std::size_t j = 1; j < bytes_read; ++j)
+					{
+						if ((string[i + j] & 0b11000000) != 0b10000000)
+							throw std::invalid_argument("Invalid UTF-8 sequence");
+
+						codepoint <<= 6;
+						codepoint |= string[i + j] & 0b00111111;
+					}
+
+					if (codepoint <= 0xFFFF) 
+					{
+						wide_string.push_back(static_cast<wchar_t>(codepoint));
+					}
+					else if (codepoint <= 0x10FFFF) 
+					{
+						//To calculate the surrogate pair, we subtract 0x10000 from the Unicode code point and split the remaining bits into the high and low surrogate.
+						//To create the high surrogate, we take the bits from the range 0-9 (inclusive) and add 0xD800.	
+						//To create the low surrogate, we take the bits from the range 10-15 (inclusive) and add 0xDC00.
+
+						codepoint -= 0x10000;
+						wide_string.push_back(static_cast<wchar_t>((codepoint >> 10) + 0xD800));
+						wide_string.push_back(static_cast<wchar_t>((codepoint & 0x3FF) + 0xDC00));
+					}
+					else 
+					{
+						throw std::invalid_argument("Invalid UTF-8 codepoint");
+					}
+
+					i += bytes_read;
+				}
+
+				return wide_string;
+			}
 		}
 
 		class string;
@@ -67,24 +181,23 @@ namespace accel
 			using iterator = string_iterator;
 			using const_iterator = const string_iterator;
 
+			explicit string(const std::wstring& wide_string) : m_str(details::narrow(wide_string)) {}
 			explicit string(const std::string& str) : m_str(str) {}
 			explicit string(const char* str) : m_str(str) {}
 
-			template<std::size_t Size>
-			string(const char (&str)[Size]) : m_str(str) {}
+			template<std::size_t Size> string(const char (&str)[Size]) : m_str(str) {}
+			template<std::size_t Size> string(const wchar_t (&str)[Size]) : m_str(details::narrow(str)) {}
 
 			ACC_DEFAULT_COPYABLE(string);
 			ACC_DEFAULT_MOVABLE(string);
 			
-			string operator+(const string& other)
-			{
-				return string(m_str + other.m_str);
-			}
+			string operator+(const string& other) const { return string(m_str + other.m_str); }
+			string operator+(const std::string& other) const { return string(m_str + other); }
+			string operator+(const std::wstring& other) const { return string(m_str + details::narrow(other)); }
 
-			string operator+(const std::string& other)
-			{
-				return string(m_str + other);
-			}
+			void operator+=(const string& other) { m_str += other.m_str; }
+			void operator+=(const std::string& other) { m_str += other; }
+			void operator+=(const std::wstring& other) { m_str += details::narrow(other); }
 
 			string operator[](std::size_t index) const
 			{
@@ -145,75 +258,7 @@ namespace accel
 			const char* data() const { return &m_str[0]; }
 			char* data() { return &m_str[0]; }
 
-			std::wstring to_wstring() const
-			{
-				std::wstring wide_string;
-				wide_string.reserve(m_str.length());
-
-				for (std::size_t i = 0; i < m_str.length();) 
-				{
-					char32_t codepoint = 0;
-					std::size_t bytes_read = 0;
-
-					if ((m_str[i] & 0b10000000) == 0b00000000) 
-					{
-						codepoint = m_str[i];
-						bytes_read = 1;
-					}
-					else if ((m_str[i] & 0b11100000) == 0b11000000)
-					{
-						codepoint = m_str[i] & 0b00011111;
-						bytes_read = 2;
-					}
-					else if ((m_str[i] & 0b11110000) == 0b11100000) 
-					{
-						codepoint = m_str[i] & 0b00001111;
-						bytes_read = 3;
-					}
-					else if ((m_str[i] & 0b11111000) == 0b11110000)
-					{
-						codepoint = m_str[i] & 0b00000111;
-						bytes_read = 4;
-					}
-					else 
-					{
-						throw std::invalid_argument("Invalid UTF-8 sequence");
-					}
-
-					// Read the remaining bytes of the UTF-8 sequence
-					for (std::size_t j = 1; j < bytes_read; ++j)
-					{
-						if ((m_str[i + j] & 0b11000000) != 0b10000000)
-							throw std::invalid_argument("Invalid UTF-8 sequence");
-
-						codepoint <<= 6;
-						codepoint |= m_str[i + j] & 0b00111111;
-					}
-
-					if (codepoint <= 0xFFFF) 
-					{
-						wide_string.push_back(static_cast<wchar_t>(codepoint));
-					}
-					else if (codepoint <= 0x10FFFF) 
-					{
-						//To calculate the surrogate pair, we subtract 0x10000 from the Unicode code point and split the remaining bits into the high and low surrogate.
-						//To create the high surrogate, we take the bits from the range 0-9 (inclusive) and add 0xD800.	
-						//To create the low surrogate, we take the bits from the range 10-15 (inclusive) and add 0xDC00.
-
-						codepoint -= 0x10000;
-						wide_string.push_back(static_cast<wchar_t>((codepoint >> 10) + 0xD800));
-						wide_string.push_back(static_cast<wchar_t>((codepoint & 0x3FF) + 0xDC00));
-					}
-					else 
-					{
-						throw std::invalid_argument("Invalid UTF-8 codepoint");
-					}
-
-					i += bytes_read;
-				}
-
-				return wide_string;
-			}
+			std::wstring to_wstring() const { return details::widen(m_str); }
 
 			string substr(std::size_t start = 0, std::size_t length = std::string::npos) const
 			{

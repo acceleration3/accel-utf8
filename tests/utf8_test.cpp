@@ -41,12 +41,24 @@ int main(int argc, char* argv[])
     {
         utf8::string test = "hello world!";
         std::string test2 = "hello world!";
-        
         ACC_ASSERT(test == test2);
 
-        test = test + test2;
+        test += test2;
 
         ACC_ASSERT(test == "hello world!hello world!");
+    }
+
+    {
+        std::wstring wide = L"This is a wide string! 日本語　👺";
+        utf8::string test(wide);
+
+        std::cout << "Length: " << test.length() << "\n";
+        ACC_ASSERT(test.length() == 28);
+        ACC_ASSERT(test.to_wstring() == wide);
+
+        test += wide;
+
+        ACC_ASSERT(test == u8"This is a wide string! 日本語　👺This is a wide string! 日本語　👺");
     }
 
     std::cout << "All UTF-8 tests passed.\n";
