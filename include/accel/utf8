@@ -181,6 +181,7 @@ namespace accel
 			using iterator = string_iterator;
 			using const_iterator = const string_iterator;
 
+			string() : m_str{} {}
 			explicit string(const std::wstring& wide_string) : m_str(details::narrow(wide_string)) {}
 			explicit string(const std::string& str) : m_str(str) {}
 			explicit string(const char* str) : m_str(str) {}

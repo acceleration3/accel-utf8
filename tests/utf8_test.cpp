@@ -6,6 +6,8 @@ using namespace accel;
 
 int main(int argc, char* argv[])
 {
+    utf8::string str;
+    
     {
         utf8::string test = u8"こんにちは　世界！😂";
         utf8::string test2 = u8"こんにちは　世界！😂";
