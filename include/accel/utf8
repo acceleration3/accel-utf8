@@ -11,21 +11,45 @@ namespace accel
 	{
 		namespace details
 		{
-			inline std::size_t get_utf_codepoint_size(unsigned char first)
+			const static std::int8_t utf8_first_byte_lut[256] = 
 			{
-				std::uint8_t mask = 0x80u;
-				unsigned result = 0;
-				while (first & mask)
+				/*0x00 - 0x0F*/ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				/*0x10 - 0x1F*/ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				/*0x20 - 0x2F*/ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				/*0x30 - 0x3F*/ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				/*0x40 - 0x4F*/ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				/*0x50 - 0x5F*/ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				/*0x60 - 0x6F*/ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				/*0x70 - 0x7F*/ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				/*0x80 - 0x8F*/ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+				/*0x90 - 0x9F*/ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+				/*0xA0 - 0xAF*/ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+				/*0xB0 - 0xBF*/ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+				/*0xC0 - 0xCF*/ -1, -1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+				/*0xD0 - 0xDF*/ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+				/*0xE0 - 0xEF*/ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+				/*0xF0 - 0xFF*/ 4, 4, 4, 4, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
+			};
+
+			const static int utf8_widen_mask_lut[4] = { 0b11111111, 0b00011111, 0b00001111, 0b00000111 };
+
+			template<typename StringT>
+			inline bool is_ascii(const StringT& str)
+			{
+				for (const auto& c : str)
 				{
-					++result;
-					mask >>= 1;
+					if (!isascii(c))
+						return false;
 				}
-				return (result == 0) ? 1 : ((result > 4) ? 4 : result);
+				return true;
 			}
 
 			inline std::string narrow(const std::wstring& wide_string)
 			{
-				std::string string;
+				std::string narrow_string;
+
+				// Preallocate memory for the worst case scenario in which all codepoints are 4 bytes long
+				narrow_string.reserve(wide_string.length() * 4);
 
 				for (std::size_t i = 0; i < wide_string.length(); i++)
 				{
@@ -39,10 +63,10 @@ namespace accel
 
 						unsigned int codepoint = 0x10000 + ((pair_high & 0x03FF) << 10) + (pair_low & 0x03FF);
 
-						string += static_cast<char>(0xF0 | (codepoint >> 18));
-						string += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
-						string += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-						string += static_cast<char>(0x80 | (codepoint & 0x3F));
+						narrow_string += static_cast<char>(0xF0 | (codepoint >> 18));
+						narrow_string += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+						narrow_string += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+						narrow_string += static_cast<char>(0x80 | (codepoint & 0x3F));
 
 						i++;
 					}
@@ -50,23 +74,26 @@ namespace accel
 					{
 						if (wide_char < 0x80)
 						{
-							string += static_cast<char>(wide_char);
+							narrow_string += static_cast<char>(wide_char);
 						}
 						else if (wide_char < 0x800)
 						{
-							string += static_cast<char>(0xC0 | (wide_char >> 6));
-							string += static_cast<char>(0x80 | (wide_char & 0x3F));
+							narrow_string += static_cast<char>(0xC0 | (wide_char >> 6));
+							narrow_string += static_cast<char>(0x80 | (wide_char & 0x3F));
 						}
 						else if (wide_char < 0x10000)
 						{
-							string += static_cast<char>(0xE0 | (wide_char >> 12));
-							string += static_cast<char>(0x80 | ((wide_char >> 6) & 0x3F));
-							string += static_cast<char>(0x80 | (wide_char & 0x3F));
+							narrow_string += static_cast<char>(0xE0 | (wide_char >> 12));
+							narrow_string += static_cast<char>(0x80 | ((wide_char >> 6) & 0x3F));
+							narrow_string += static_cast<char>(0x80 | (wide_char & 0x3F));
 						}
 					}
 				}
 
-				return string;
+				// Trim the string's very likely extra capacity 
+				narrow_string.shrink_to_fit();
+
+				return narrow_string;
 			}
 		
 			inline std::wstring widen(const std::string& string)
@@ -76,38 +103,14 @@ namespace accel
 
 				for (std::size_t i = 0; i < string.length();) 
 				{
-					std::uint32_t codepoint = string[i];
-					std::size_t bytes_read = 0;
+					unsigned char first_byte = string[i];
+					std::size_t codepoint_size = utf8_first_byte_lut[first_byte];
+					std::uint32_t codepoint = first_byte;
 
-					if ((codepoint & 0b10000000) == 0b00000000) 
-					{
-						bytes_read = 1;
-					}
-					else if ((codepoint & 0b11100000) == 0b11000000)
-					{
-						codepoint &= 0b00011111;
-						bytes_read = 2;
-					}
-					else if ((codepoint & 0b11110000) == 0b11100000) 
-					{
-						codepoint &= 0b00001111;
-						bytes_read = 3;
-					}
-					else if ((codepoint & 0b11111000) == 0b11110000)
-					{
-						codepoint &= 0b00000111;
-						bytes_read = 4;
-					}
-					else 
-					{
-						throw std::invalid_argument("Invalid UTF-8 sequence");
-					}
+					codepoint &= utf8_widen_mask_lut[codepoint_size - 1];
 
-					for (std::size_t j = 1; j < bytes_read; ++j)
+					for (std::size_t j = 1; j < codepoint_size; ++j)
 					{
-						if ((string[i + j] & 0b11000000) != 0b10000000)
-							throw std::invalid_argument("Invalid UTF-8 sequence");
-
 						codepoint <<= 6;
 						codepoint |= string[i + j] & 0b00111111;
 					}
@@ -116,25 +119,58 @@ namespace accel
 					{
 						wide_string.push_back(static_cast<wchar_t>(codepoint));
 					}
-					else if (codepoint <= 0x10FFFF) 
+					else
 					{
 						//To calculate the surrogate pair, we subtract 0x10000 from the Unicode code point and split the remaining bits into the high and low surrogate.
 						//To create the high surrogate, we take the bits from the range 0-9 (inclusive) and add 0xD800.	
 						//To create the low surrogate, we take the bits from the range 10-15 (inclusive) and add 0xDC00.
-
 						codepoint -= 0x10000;
 						wide_string.push_back(static_cast<wchar_t>((codepoint >> 10) + 0xD800));
 						wide_string.push_back(static_cast<wchar_t>((codepoint & 0x3FF) + 0xDC00));
 					}
-					else 
-					{
-						throw std::invalid_argument("Invalid UTF-8 codepoint");
-					}
 
-					i += bytes_read;
+					i += codepoint_size;
 				}
 
 				return wide_string;
+			}
+		
+			inline bool is_valid(const char* data, std::size_t length)
+			{
+				for (std::size_t index = 0; index < length;)
+				{
+					unsigned char first_byte = data[index];
+
+					// Check first byte validity 
+					std::int8_t codepoint_size = details::utf8_first_byte_lut[first_byte];
+					if (codepoint_size == -1)
+						return false;
+
+					// Check continuation bytes validity
+					for (std::size_t byte = 1; byte < codepoint_size - 1; byte++)
+					{
+						unsigned char continuation_byte = data[index + byte];
+						if ((continuation_byte & 0xC0) != 0x80)
+							return false;
+					}
+
+					index += codepoint_size;
+				}
+
+				return true;
+			}
+		
+			inline std::size_t length(const char* data, std::size_t size)
+			{
+				std::size_t length = 0;
+				for (std::size_t i = 0; i < size;)
+				{
+					unsigned char first_byte = data[i];
+					std::size_t codepoint_size = details::utf8_first_byte_lut[first_byte];
+					i += codepoint_size;
+					length++;
+				}
+				return length;
 			}
 		}
 
@@ -171,7 +207,7 @@ namespace accel
 
 			void advance() 
 			{
-				m_index += details::get_utf_codepoint_size(m_str[m_index]);
+				m_index += details::utf8_first_byte_lut[m_str[m_index]];
 			}
 		};
 
@@ -182,12 +218,50 @@ namespace accel
 			using const_iterator = const string_iterator;
 
 			string() : m_str{} {}
-			explicit string(const std::wstring& wide_string) : m_str(details::narrow(wide_string)) {}
-			explicit string(const std::string& str) : m_str(str) {}
-			explicit string(const char* str) : m_str(str) {}
 
-			template<std::size_t Size> string(const char (&str)[Size]) : m_str(str) {}
-			template<std::size_t Size> string(const wchar_t (&str)[Size]) : m_str(details::narrow(str)) {}
+			explicit string(const std::wstring& wide_string) : 
+				m_str(details::narrow(wide_string))
+			{
+				if (!details::is_valid(m_str.c_str(), m_str.length()))
+					throw std::runtime_error("Invalid UTF-8 string.");
+
+				m_length = details::length(m_str.c_str(), m_str.length());
+			}
+			
+			explicit string(const std::string& str) :
+				m_str(str)
+			{
+				if (!details::is_valid(m_str.c_str(), m_str.length()))
+					throw std::runtime_error("Invalid UTF-8 string.");
+				
+				m_length = details::length(m_str.c_str(), m_str.length());
+			}
+
+			explicit string(const char* memory) :
+				m_str(memory)
+			{
+				if (!details::is_valid(m_str.c_str(), m_str.length()))
+					throw std::runtime_error("Invalid UTF-8 string.");
+
+				m_length = details::length(m_str.c_str(), m_str.length());
+			}
+
+			template<std::size_t Size>
+			string(const char (&str)[Size]) :
+				m_str(str)
+			{
+				if (!details::is_valid(m_str.c_str(), m_str.length()))
+					throw std::runtime_error("Invalid UTF-8 string.");
+
+				m_length = details::length(m_str.c_str(), m_str.length());
+			}
+
+			template<std::size_t Size>
+			string(const wchar_t (&str)[Size]) :
+				m_str(details::narrow(str))
+			{
+				m_length = details::length(m_str.c_str(), m_str.length());
+			}
 
 			ACC_DEFAULT_COPYABLE(string);
 			ACC_DEFAULT_MOVABLE(string);
@@ -196,14 +270,47 @@ namespace accel
 			string operator+(const std::string& other) const { return string(m_str + other); }
 			string operator+(const std::wstring& other) const { return string(m_str + details::narrow(other)); }
 
-			void operator+=(const string& other) { m_str += other.m_str; }
-			void operator+=(const std::string& other) { m_str += other; }
-			void operator+=(const std::wstring& other) { m_str += details::narrow(other); }
+			void operator+=(const string& other) 
+			{
+				m_length += other.m_length;
+				m_str += other.m_str; 
+			}
+
+			void operator+=(const std::string& other)
+			{ 
+				if (!details::is_valid(other.c_str(), other.length()))
+					throw std::runtime_error("Invalid UTF-8 string.");
+				m_length += details::length(other.data(), other.length());
+				m_str += other; 
+			}
+			
+			void operator+=(const std::wstring& other)
+			{ 
+				m_str += details::narrow(other); 
+				m_length = details::length(m_str.data(), m_str.length());
+			}
+
+			template<std::size_t Size>
+			void operator+=(const char (&str)[Size])
+			{
+				if (!details::is_valid(str, Size - 1))
+					throw std::runtime_error("Invalid UTF-8 string.");
+				m_str += str; 
+				m_length += details::length(str, Size - 1);
+			}
+
+			template<std::size_t Size>
+			void operator+=(const wchar_t (&str)[Size])
+			{
+				m_str += details::narrow(str); 
+				m_length += details::length(m_str.data(), m_str.size());
+			}
 
 			string operator[](std::size_t index) const
 			{
 				std::size_t offset = index_to_offset(index);
-				return string(m_str.substr(offset, details::get_utf_codepoint_size(m_str[offset])));
+				unsigned char first_byte = m_str[offset];
+				return string(m_str.substr(offset, details::utf8_first_byte_lut[first_byte]));
 			}
 
 			bool operator==(const string& other) const
@@ -236,30 +343,43 @@ namespace accel
 				return m_str != str;
 			}
 
-			iterator begin() { return iterator(m_str); }
+			iterator begin(){ return iterator(m_str); }
 			const_iterator cbegin() const { return const_iterator(m_str); }
 
 			iterator end() { return iterator(m_str, data_size()); }
 			const_iterator cend() const { return const_iterator(m_str, data_size()); }
 
 			std::size_t data_size() const { return m_str.size(); }
-
-			std::size_t length() const
-			{
-				std::size_t length = 0;
-				std::size_t index = 0;
-				while (index < m_str.length())
-				{
-					length++;
-					index += details::get_utf_codepoint_size(m_str[index]);
-				}
-				return length;
-			}
+			std::size_t length() const { return m_length; }
 
 			const char* data() const { return &m_str[0]; }
 			char* data() { return &m_str[0]; }
 
+			bool is_ascii() const
+			{ 
+				for (const auto& c : m_str)
+				{
+					if (static_cast<unsigned char>(c) >= 128)
+						return false;
+				}
+				return true;
+			}
+
 			std::wstring to_wstring() const { return details::widen(m_str); }
+
+			std::string to_string() const 
+			{ 
+				ACC_ASSERT(is_ascii());
+				return m_str;
+			}
+
+			std::string try_convert_to_string() const 
+			{ 
+				if(!is_ascii())
+					throw std::runtime_error("Can't convert to string. Contains non-ASCII characters.");
+
+				return m_str;
+			}
 
 			string substr(std::size_t start = 0, std::size_t length = std::string::npos) const
 			{
@@ -274,21 +394,24 @@ namespace accel
 			void clear()
 			{
 				m_str.clear();
+				m_length = 0;
 			}
 
 		private:
 			std::string m_str;
+			std::size_t m_length;
 
 			std::size_t index_to_offset(std::size_t index) const
 			{
-				ACC_ASSERT(index < length());
+				ACC_ASSERT(index < m_length);
 
 				std::size_t current = 0;
 				std::size_t byte_index = 0;
 				while (current < index)
 				{
 					current++;
-					byte_index += details::get_utf_codepoint_size(m_str[byte_index]);
+					unsigned char first_byte = m_str[byte_index];
+					byte_index += details::utf8_first_byte_lut[first_byte];
 				}
 
 				return byte_index;
@@ -297,7 +420,8 @@ namespace accel
 
 		string string_iterator::operator*() const
 		{
-			auto portion = m_str.substr(m_index, details::get_utf_codepoint_size(m_str[m_index]));
+			unsigned char first_byte = m_str[m_index];
+			auto portion = m_str.substr(m_index, details::utf8_first_byte_lut[first_byte]);
 			return string(portion);
 		}
 	}

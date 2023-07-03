@@ -20,7 +20,8 @@ int main(int argc, char* argv[])
 
         ACC_ASSERT(test.length() == 10);
         ACC_ASSERT(test.data_size() == 31);
-
+        ACC_ASSERT(!test.is_ascii());
+        
         ACC_ASSERT(test[0] == u8"こ");
         ACC_ASSERT(test[1] == u8"ん");
         ACC_ASSERT(test[2] == u8"に");
@@ -32,6 +33,7 @@ int main(int argc, char* argv[])
         ACC_ASSERT(test[8] == u8"！");
         ACC_ASSERT(test[9] == u8"😂");
 
+        std::wstring res = L"こんにちは　世界！😂";
         ACC_ASSERT(test.to_wstring() == L"こんにちは　世界！😂");
         ACC_ASSERT(test[0].to_wstring() == L"こ");
 
@@ -45,6 +47,8 @@ int main(int argc, char* argv[])
         std::string test2 = "hello world!";
         ACC_ASSERT(test == test2);
 
+        ACC_ASSERT(test.is_ascii());
+
         test += test2;
 
         ACC_ASSERT(test == "hello world!hello world!");
@@ -54,13 +58,23 @@ int main(int argc, char* argv[])
         std::wstring wide = L"This is a wide string! 日本語　👺";
         utf8::string test(wide);
 
-        std::cout << "Length: " << test.length() << "\n";
         ACC_ASSERT(test.length() == 28);
         ACC_ASSERT(test.to_wstring() == wide);
+        ACC_ASSERT(!test.is_ascii());
 
         test += wide;
 
         ACC_ASSERT(test == u8"This is a wide string! 日本語　👺This is a wide string! 日本語　👺");
+    }
+
+    {
+        utf8::string test = "test";
+        
+        ACC_ASSERT(test.is_ascii());
+        
+        test += u8"あ";
+
+        ACC_ASSERT(!test.is_ascii());
     }
 
     std::cout << "All UTF-8 tests passed.\n";
