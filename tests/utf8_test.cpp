@@ -33,7 +33,6 @@ int main(int argc, char* argv[])
         ACC_ASSERT(test[8] == u8"！");
         ACC_ASSERT(test[9] == u8"😂");
 
-        std::wstring res = L"こんにちは　世界！😂";
         ACC_ASSERT(test.to_wstring() == L"こんにちは　世界！😂");
         ACC_ASSERT(test[0].to_wstring() == L"こ");
 
@@ -71,10 +70,19 @@ int main(int argc, char* argv[])
         utf8::string test = "test";
         
         ACC_ASSERT(test.is_ascii());
+        ACC_ASSERT(test.to_string() == "test");
+        ACC_ASSERT(test.try_convert_to_string() == "test");
         
         test += u8"あ";
 
         ACC_ASSERT(!test.is_ascii());
+
+        try
+        {
+            test.try_convert_to_string();
+            ACC_ASSERT(false);
+        }
+        catch(const std::exception& e) {}
     }
 
     std::cout << "All UTF-8 tests passed.\n";

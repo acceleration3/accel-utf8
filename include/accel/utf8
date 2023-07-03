@@ -33,17 +33,6 @@ namespace accel
 
 			const static int utf8_widen_mask_lut[4] = { 0b11111111, 0b00011111, 0b00001111, 0b00000111 };
 
-			template<typename StringT>
-			inline bool is_ascii(const StringT& str)
-			{
-				for (const auto& c : str)
-				{
-					if (!isascii(c))
-						return false;
-				}
-				return true;
-			}
-
 			inline std::string narrow(const std::wstring& wide_string)
 			{
 				std::string narrow_string;
