@@ -332,10 +332,12 @@ namespace accel
 				return m_str != str;
 			}
 
-			iterator begin(){ return iterator(m_str); }
-			const_iterator cbegin() const { return const_iterator(m_str); }
-
+			iterator begin() { return iterator(m_str); }
 			iterator end() { return iterator(m_str, data_size()); }
+			const_iterator begin() const { return const_iterator(m_str); }
+			const_iterator end() const { return const_iterator(m_str, data_size()); }
+			
+			const_iterator cbegin() const { return const_iterator(m_str); }
 			const_iterator cend() const { return const_iterator(m_str, data_size()); }
 
 			std::size_t data_size() const { return m_str.size(); }
