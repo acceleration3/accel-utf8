@@ -5,6 +5,12 @@
 
 #include <accel/macros>
 
+#if WCHAR_MAX > 0xFFFF
+	#define IS_UTF32 1
+#else
+	#define IS_UTF32 0
+#endif
+
 namespace accel
 {
 	namespace utf8
@@ -33,7 +39,7 @@ namespace accel
 
 			const static int utf8_widen_mask_lut[4] = { 0b11111111, 0b00011111, 0b00001111, 0b00000111 };
 
-			inline std::string narrow(const std::wstring& wide_string)
+            inline std::string narrow(const std::wstring& wide_string)
 			{
 				std::string narrow_string;
 
@@ -70,12 +76,30 @@ namespace accel
 							narrow_string += static_cast<char>(0xC0 | (wide_char >> 6));
 							narrow_string += static_cast<char>(0x80 | (wide_char & 0x3F));
 						}
-						else if (wide_char < 0x10000)
+#if IS_UTF32
+						// If wchar_t is UTF-32, the values can go over 0xFFFF and we need to check 4 different cases
+						else if (wide_char < 0x10000) 
 						{
-							narrow_string += static_cast<char>(0xE0 | (wide_char >> 12));
+							narrow_string += static_cast<char>(0xE0 | ((wide_char >> 12) & 0x0F));
+							narrow_string += static_cast<char>(0x80 | ((wide_char >> 6) & 0x3F));
+							narrow_string += static_cast<char>(0x80 | (wide_char & 0x3F));
+						} 
+						else
+						{
+							narrow_string += static_cast<char>(0xF0 | ((wide_char >> 18) & 0x07));
+							narrow_string += static_cast<char>(0x80 | ((wide_char >> 12) & 0x3F));
 							narrow_string += static_cast<char>(0x80 | ((wide_char >> 6) & 0x3F));
 							narrow_string += static_cast<char>(0x80 | (wide_char & 0x3F));
 						}
+#else
+						// If wchar_t is UTF-16, we only need to check 3 cases
+						else
+						{
+							narrow_string += static_cast<char>(0xE0 | ((wide_char >> 12) & 0x0F));
+							narrow_string += static_cast<char>(0x80 | ((wide_char >> 6) & 0x3F));
+							narrow_string += static_cast<char>(0x80 | (wide_char & 0x3F));
+						}
+#endif
 					}
 				}
 
@@ -103,8 +127,12 @@ namespace accel
 						codepoint <<= 6;
 						codepoint |= string[i + j] & 0b00111111;
 					}
-
-					if (codepoint <= 0xFFFF) 
+#if IS_UTF32
+                    // An UTF-32 wchar_t fits an entire codepoint without splitting
+					wide_string.push_back(static_cast<wchar_t>(codepoint));
+#else
+                    // An UTF-16 wchar_t needs some splitting to fit a 32 bit codepoint
+                    if (codepoint <= 0xFFFF) 
 					{
 						wide_string.push_back(static_cast<wchar_t>(codepoint));
 					}
@@ -117,11 +145,16 @@ namespace accel
 						wide_string.push_back(static_cast<wchar_t>((codepoint >> 10) + 0xD800));
 						wide_string.push_back(static_cast<wchar_t>((codepoint & 0x3FF) + 0xDC00));
 					}
-
+#endif
 					i += codepoint_size;
 				}
 
 				return wide_string;
+			}
+
+			inline bool is_continuation_byte(std::uint8_t byte)
+			{
+				return (byte & 0xC0) == 0x80;
 			}
 		
 			inline bool is_valid(const char* data, std::size_t length)
@@ -139,7 +172,7 @@ namespace accel
 					for (std::size_t byte = 1; byte < codepoint_size - 1; byte++)
 					{
 						unsigned char continuation_byte = data[index + byte];
-						if ((continuation_byte & 0xC0) != 0x80)
+						if (!is_continuation_byte(continuation_byte))
 							return false;
 					}
 
@@ -168,35 +201,116 @@ namespace accel
 		class string_iterator
 		{
 		public:
-			explicit string_iterator(const std::string& str, std::size_t index = 0) :
+			using iterator_category = std::bidirectional_iterator_tag;
+			using value_type = string;
+			using difference_type = std::ptrdiff_t;
+			
+			string_iterator(const std::string& str, std::size_t index = 0) :
 				m_str(str),
 				m_index(index) {}
 
 			string_iterator& operator++()
 			{
-				advance();
+				m_index += get_codepoint_advance(m_index);
 				return *this;
 			}
 
-			bool operator==(const string_iterator& other) const
+			string_iterator operator++(int)
 			{
-				return &m_str == &other.m_str && m_index == other.m_index;
+				string_iterator temp = *this;
+				m_index += get_codepoint_advance(m_index);
+				return temp;
 			}
 
-			bool operator!=(const string_iterator& other) const
+			string_iterator& operator--()
 			{
-				return !(*this == other);
+				m_index += get_codepoint_retreat(m_index);
+				return *this;
 			}
 
-			string operator*() const;
+			string_iterator operator--(int)
+			{
+				string_iterator temp = *this;
+				m_index += get_codepoint_retreat(m_index);
+				return temp;
+			}
+
+			bool operator==(const string_iterator& other) const { return m_index == other.m_index; }
+			bool operator!=(const string_iterator& other) const { return m_index != other.m_index; }
+			bool operator>(const string_iterator& other) const { return m_index > other.m_index; }
+			bool operator<(const string_iterator& other) const { return m_index < other.m_index; }
+			bool operator>=(const string_iterator& other) const { return m_index >= other.m_index; }
+			bool operator<=(const string_iterator& other) const { return m_index <= other.m_index; }
+
+			value_type operator*() const;
+			value_type operator->() const;
+
+			string_iterator operator+(difference_type count) const
+			{
+				string_iterator temp = *this;
+				for (difference_type i = 0; i < count; i++)
+					temp.m_index += get_codepoint_advance(temp.m_index);
+				return temp;
+			}
+
+			string_iterator operator-(difference_type count) const
+			{
+				string_iterator temp = *this;
+				for (difference_type i = 0; i < count; i++)
+					temp.m_index += get_codepoint_retreat(temp.m_index);
+				return temp;
+			}
+
+			difference_type operator-(const string_iterator& other) const
+			{
+				return m_index - other.m_index;			
+			}
+
+			string_iterator& operator+=(difference_type count)
+			{
+				for (difference_type i = 0; i < count; i++)
+					m_index += get_codepoint_advance(m_index);
+				return *this;
+			}
+
+			string_iterator& operator-=(difference_type count)
+			{
+				for (difference_type i = 0; i < count; i++)
+					m_index += get_codepoint_retreat(m_index);
+				return *this;
+			}
+
+			int get_index() const { return m_index; }
 
 		private:
 			const std::string& m_str;
 			std::size_t m_index;
 
-			void advance() 
+			difference_type get_codepoint_advance(std::size_t index) const
 			{
-				m_index += details::utf8_first_byte_lut[m_str[m_index]];
+				std::uint8_t first_byte = m_str[index];
+				return details::utf8_first_byte_lut[first_byte];
+			}
+
+			difference_type get_codepoint_retreat(std::size_t index) const
+			{
+				// Already at the beginning of the string, no need to retreat
+				if (m_index == 0)
+					return 0;
+
+				difference_type retreat = -1;
+
+				std::size_t steps_available = m_index + retreat; 
+				for (std::size_t i = steps_available; i >= 0; i--)
+				{
+					std::uint8_t current_byte = m_str[i];
+					bool is_continuation = details::is_continuation_byte(current_byte);
+					if (!is_continuation)
+						break;
+					retreat--;					
+				}
+
+				return retreat;
 			}
 		};
 
@@ -297,46 +411,31 @@ namespace accel
 
 			string operator[](std::size_t index) const
 			{
-				std::size_t offset = index_to_offset(index);
-				unsigned char first_byte = m_str[offset];
-				return string(m_str.substr(offset, details::utf8_first_byte_lut[first_byte]));
+				auto begin_it = begin() + index;
+				std::size_t real_index = begin_it.get_index();
+				std::uint8_t first_byte = m_str[real_index];
+				return string(m_str.substr(real_index, details::utf8_first_byte_lut[first_byte]));
 			}
 
-			bool operator==(const string& other) const
-			{
-				return length() == other.length() && m_str == other.m_str;
-			}
+			bool operator==(const string& other) const { return length() == other.length() && m_str == other.m_str; }
+			bool operator!=(const string& other) const { return !operator==(other); }
 
-			bool operator!=(const string& other) const
-			{
-				return !operator==(other);
-			}
+			bool operator==(const char* memory) const { return m_str == memory; }
+			bool operator!=(const char* memory) const { return m_str != memory; }
 
-			bool operator==(const char* memory) const
-			{
-				return m_str == memory;
-			}
-
-			bool operator!=(const char* memory) const 
-			{
-				return m_str != memory;
-			}
-
-			bool operator==(const std::string& str) const
-			{
-				return m_str == str;
-			}
-
-			bool operator!=(const std::string& str) const
-			{
-				return m_str != str;
-			}
+			bool operator==(const std::string& str) const { return m_str == str; }
+			bool operator!=(const std::string& str) const { return m_str != str; }
 
 			iterator begin() { return iterator(m_str); }
 			iterator end() { return iterator(m_str, data_size()); }
 			const_iterator begin() const { return const_iterator(m_str); }
 			const_iterator end() const { return const_iterator(m_str, data_size()); }
 			
+			iterator rbegin() { return iterator(m_str, data_size()); }
+			iterator rend() { return iterator(m_str); }
+			const_iterator rbegin() const { return const_iterator(m_str, data_size()); }
+			const_iterator rend() const { return const_iterator(m_str); }
+
 			const_iterator cbegin() const { return const_iterator(m_str); }
 			const_iterator cend() const { return const_iterator(m_str, data_size()); }
 
@@ -361,6 +460,7 @@ namespace accel
 			std::string to_string() const 
 			{ 
 				ACC_ASSERT(is_ascii());
+				
 				return m_str;
 			}
 
@@ -377,9 +477,10 @@ namespace accel
 				ACC_ASSERT(start < this->length());
 				ACC_ASSERT(start + length < this->length());
 
-				std::size_t start_offset = index_to_offset(start);
-				std::size_t end_offset = index_to_offset(start + length);
-				return string(m_str.substr(start_offset, end_offset - start_offset));
+				auto begin_it = begin() + start;
+				auto end_it = begin_it + length;
+				std::size_t byte_length = end_it - begin_it;
+				return string(m_str.substr(begin_it.get_index(), byte_length));
 			}
 
 			void clear()
@@ -391,25 +492,16 @@ namespace accel
 		private:
 			std::string m_str;
 			std::size_t m_length;
-
-			std::size_t index_to_offset(std::size_t index) const
-			{
-				ACC_ASSERT(index < m_length);
-
-				std::size_t current = 0;
-				std::size_t byte_index = 0;
-				while (current < index)
-				{
-					current++;
-					unsigned char first_byte = m_str[byte_index];
-					byte_index += details::utf8_first_byte_lut[first_byte];
-				}
-
-				return byte_index;
-			}
 		};
 
 		string string_iterator::operator*() const
+		{
+			unsigned char first_byte = m_str[m_index];
+			auto portion = m_str.substr(m_index, details::utf8_first_byte_lut[first_byte]);
+			return string(portion);
+		}
+
+		string string_iterator::operator->() const
 		{
 			unsigned char first_byte = m_str[m_index];
 			auto portion = m_str.substr(m_index, details::utf8_first_byte_lut[first_byte]);
