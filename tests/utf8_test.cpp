@@ -8,7 +8,7 @@ size_t __wcslen(const wchar_t* ws)
 {
     size_t position = 0;
     size_t count = 0;
-    
+
     while (true)
     {
         wchar_t test = ws[position];
@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
         ACC_ASSERT(test.length() == 10);
         ACC_ASSERT(test.data_size() == 31);
         ACC_ASSERT(!test.is_ascii());
-        
+
         ACC_ASSERT(test[0] == u8"こ");
         ACC_ASSERT(test[1] == u8"ん");
         ACC_ASSERT(test[2] == u8"に");
@@ -86,11 +86,11 @@ int main(int argc, char* argv[])
 
     {
         utf8::string test = "test";
-        
+
         ACC_ASSERT(test.is_ascii());
         ACC_ASSERT(test.to_string() == "test");
         ACC_ASSERT(test.try_convert_to_string() == "test");
-        
+
         test += u8"あ";
 
         ACC_ASSERT(!test.is_ascii());
@@ -100,7 +100,7 @@ int main(int argc, char* argv[])
             test.try_convert_to_string();
             ACC_ASSERT(false);
         }
-        catch(const std::exception& e) {}
+        catch (const std::exception& e) {}
     }
 
     std::cout << "All UTF-8 tests passed.\n";
