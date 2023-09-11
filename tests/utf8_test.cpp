@@ -4,24 +4,6 @@
 
 using namespace accel;
 
-size_t __wcslen(const wchar_t* ws)
-{
-    size_t position = 0;
-    size_t count = 0;
-
-    while (true)
-    {
-        wchar_t test = ws[position];
-        if (test == L'\0')
-            count++;
-        if (count == 2)
-            break;
-        position++;
-    }
-
-    return position - 2;
-}
-
 int main(int argc, char* argv[])
 {
     utf8::string str;
@@ -94,6 +76,8 @@ int main(int argc, char* argv[])
         test += u8"あ";
 
         ACC_ASSERT(!test.is_ascii());
+
+        auto it = test.begin();
 
         try
         {

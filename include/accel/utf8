@@ -243,7 +243,6 @@ namespace accel
 			bool operator<=(const string_iterator& other) const { return m_index <= other.m_index; }
 
 			value_type operator*() const;
-			value_type operator->() const;
 
 			string_iterator operator+(difference_type count) const
 			{
@@ -455,7 +454,7 @@ namespace accel
 			std::string to_string() const
 			{
 				ACC_ASSERT(is_ascii());
-				
+
 				return m_str;
 			}
 
@@ -490,13 +489,6 @@ namespace accel
 		};
 
 		string string_iterator::operator*() const
-		{
-			unsigned char first_byte = m_str[m_index];
-			auto portion = m_str.substr(m_index, details::utf8_first_byte_lut[first_byte]);
-			return string(portion);
-		}
-
-		string string_iterator::operator->() const
 		{
 			unsigned char first_byte = m_str[m_index];
 			auto portion = m_str.substr(m_index, details::utf8_first_byte_lut[first_byte]);
