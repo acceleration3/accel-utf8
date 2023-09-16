@@ -204,6 +204,8 @@ namespace accel
 			using iterator_category = std::bidirectional_iterator_tag;
 			using value_type = string;
 			using difference_type = std::ptrdiff_t;
+			using pointer_type = string*;
+			using reference_type = string&;
 
 			string_iterator(const std::string& str, std::size_t index = 0) :
 				m_str(str),
@@ -319,6 +321,8 @@ namespace accel
 			using iterator = string_iterator;
 			using const_iterator = const string_iterator;
 
+			static constexpr const std::size_t npos = std::string::npos;
+
 			string() : m_str{} {}
 
 			explicit string(const std::wstring& wide_string) : m_str(details::narrow(wide_string))
@@ -405,6 +409,7 @@ namespace accel
 
 			string operator[](std::size_t index) const
 			{
+				index = (index >= m_length) ? m_length : index;
 				auto begin_it = begin() + index;
 				std::size_t real_index = begin_it.get_index();
 				std::uint8_t first_byte = m_str[real_index];
@@ -412,7 +417,7 @@ namespace accel
 			}
 
 			bool operator==(const string& other) const { return length() == other.length() && m_str == other.m_str; }
-			bool operator!=(const string& other) const { return !operator==(other); }
+			bool operator!=(const string& other) const { return length() != other.length() || m_str != other.m_str; }
 
 			bool operator==(const char* memory) const { return m_str == memory; }
 			bool operator!=(const char* memory) const { return m_str != memory; }
@@ -451,30 +456,51 @@ namespace accel
 
 			std::wstring to_wstring() const { return details::widen(m_str); }
 
-			std::string to_string() const
+			std::string to_string() const { return m_str; }
+
+			string substr(std::size_t start = 0, std::size_t length = npos) const
 			{
-				ACC_ASSERT(is_ascii());
+				if (start >= m_length)
+					throw std::runtime_error("Start is greater than the string's length.");
+				
+				if (start + length > m_length)
+					throw std::runtime_error("Start + length goes past the string's length.");
+				
+				length = (length == npos ? m_length - start : length);
 
-				return m_str;
-			}
-
-			std::string try_convert_to_string() const
-			{
-				if (!is_ascii())
-					throw std::runtime_error("Can't convert to string. Contains non-ASCII characters.");
-
-				return m_str;
-			}
-
-			string substr(std::size_t start = 0, std::size_t length = std::string::npos) const
-			{
-				ACC_ASSERT(start < this->length());
-				ACC_ASSERT(start + length < this->length());
-
-				auto begin_it = begin() + start;
+				auto begin_it = cbegin() + start;
 				auto end_it = begin_it + length;
+
 				std::size_t byte_length = end_it - begin_it;
 				return string(m_str.substr(begin_it.get_index(), byte_length));
+			}
+
+			std::size_t find(const string& pattern, std::size_t position = 0)
+			{
+				if (position + pattern.length() > m_length)
+					throw std::runtime_error("Trying to search past the string length.");
+
+				auto start_it = cbegin() + position;
+				auto pattern_it = pattern.cbegin();
+				for (auto string_it = start_it; string_it != cend(); string_it++)
+				{
+					bool mismatch = false;
+					for (std::size_t i = 0; i < pattern.length(); i++)
+					{
+						if (*(pattern_it + i) != *(string_it + i))
+						{
+							mismatch = true;
+							break;
+						}	
+					}
+
+					if (!mismatch)
+						return position;
+
+					position++;
+				}
+
+				return npos;
 			}
 
 			void clear()

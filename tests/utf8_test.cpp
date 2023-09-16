@@ -13,6 +13,23 @@ int main(int argc, char* argv[])
         utf8::string test2 = u8"こんにちは　世界！😂";
         utf8::string test3 = u8"こんにちは　世界！😀";
 
+        ACC_ASSERT(test.find(u8"こん") == 0);
+        ACC_ASSERT(test.find(u8"ちは") == 3);
+        ACC_ASSERT(test.find(u8"世界！😂") == 6);
+        ACC_ASSERT(test.find(u8"は", 2) == 4);
+        ACC_ASSERT(test.find(u8"😂", 4) == 9);
+
+        ACC_ASSERT(test.find(u8"test", 2) == utf8::string::npos);
+        ACC_ASSERT(test.find(u8"こん", 2) == utf8::string::npos);
+
+        ACC_ASSERT(test.substr(2) == u8"にちは　世界！😂");
+        ACC_ASSERT(test.substr(4) == u8"は　世界！😂");
+        ACC_ASSERT(test.substr(8) == u8"！😂");
+
+        ACC_ASSERT(test.substr(2, 2) == u8"にち");
+        ACC_ASSERT(test.substr(4, 3) == u8"は　世");
+        ACC_ASSERT(test.substr(8, 1) == u8"！");
+
         ACC_ASSERT(test == test2);
         ACC_ASSERT(test == u8"こんにちは　世界！😂");
         ACC_ASSERT(test != test3);
@@ -71,20 +88,12 @@ int main(int argc, char* argv[])
 
         ACC_ASSERT(test.is_ascii());
         ACC_ASSERT(test.to_string() == "test");
-        ACC_ASSERT(test.try_convert_to_string() == "test");
 
         test += u8"あ";
 
         ACC_ASSERT(!test.is_ascii());
 
         auto it = test.begin();
-
-        try
-        {
-            test.try_convert_to_string();
-            ACC_ASSERT(false);
-        }
-        catch (const std::exception& e) {}
     }
 
     std::cout << "All UTF-8 tests passed.\n";
