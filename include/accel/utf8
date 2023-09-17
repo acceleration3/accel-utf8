@@ -211,6 +211,9 @@ namespace accel
 				m_str(str),
 				m_index(index) {}
 
+			ACC_DEFAULT_COPYABLE(string_iterator);
+			ACC_DEFAULT_MOVABLE(string_iterator);
+
 			string_iterator& operator++()
 			{
 				m_index += get_codepoint_advance(m_index);
@@ -409,7 +412,6 @@ namespace accel
 
 			string operator[](std::size_t index) const
 			{
-				index = (index >= m_length) ? m_length : index;
 				auto begin_it = begin() + index;
 				std::size_t real_index = begin_it.get_index();
 				std::uint8_t first_byte = m_str[real_index];
@@ -461,10 +463,10 @@ namespace accel
 			string substr(std::size_t start = 0, std::size_t length = npos) const
 			{
 				if (start >= m_length)
-					throw std::runtime_error("Start is greater than the string's length.");
+					throw std::out_of_range("Start is greater than the string's length.");
 				
 				if (start + length > m_length)
-					throw std::runtime_error("Start + length goes past the string's length.");
+					throw std::out_of_range("Start + length goes past the string's length.");
 				
 				length = (length == npos ? m_length - start : length);
 
@@ -478,26 +480,68 @@ namespace accel
 			std::size_t find(const string& pattern, std::size_t position = 0)
 			{
 				if (position + pattern.length() > m_length)
-					throw std::runtime_error("Trying to search past the string length.");
-
-				auto start_it = cbegin() + position;
-				auto pattern_it = pattern.cbegin();
-				for (auto string_it = start_it; string_it != cend(); string_it++)
+					throw std::out_of_range("Trying to search past the string length.");
+				
+				for (auto string_it = cbegin() + position; string_it != cend(); string_it++)
 				{
 					bool mismatch = false;
-					for (std::size_t i = 0; i < pattern.length(); i++)
+					auto temp_string_it = string_it; 
+					for (auto pattern_it = pattern.cbegin(); pattern_it != pattern.cend(); pattern_it++, temp_string_it++)
 					{
-						if (*(pattern_it + i) != *(string_it + i))
+						if (*pattern_it != *temp_string_it)
 						{
 							mismatch = true;
 							break;
-						}	
+						}
 					}
 
 					if (!mismatch)
 						return position;
 
 					position++;
+				}
+
+				return npos;
+			}
+
+			std::size_t find_first_of(const string& codepoints, std::size_t position = 0)
+			{
+				if (position >= m_length)
+					throw std::out_of_range("Trying to search past the string length.");
+
+				for (auto string_it = cbegin() + position; string_it != cend(); string_it++)
+				{
+					for (auto codepoint_it = codepoints.cbegin(); codepoint_it != codepoints.cend(); codepoint_it++)
+					{
+						if (*codepoint_it == *string_it)
+							return position;
+					}
+					position++;
+				}
+
+				return npos;
+			}
+
+			std::size_t find_last_of(const string& codepoints, std::size_t position = npos)
+			{
+				if (position != npos)
+				{
+					if (position >= m_length)
+						throw std::out_of_range("Trying to search past the string length.");
+				}
+				else
+				{
+					position = m_length - 1;
+				}
+
+				for (auto string_it = cbegin() + position; string_it != cbegin(); string_it--)
+				{
+					for (auto codepoint_it = codepoints.cbegin(); codepoint_it != codepoints.cend(); codepoint_it++)
+					{
+						if (*codepoint_it == *string_it)
+							return position;
+					}
+					position--;
 				}
 
 				return npos;
