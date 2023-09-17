@@ -34,15 +34,25 @@ int main(int argc, char* argv[])
         ACC_ASSERT(test.find_first_of(u8"aちd", 4) == utf8::string::npos);
 
         ACC_ASSERT_EXCEPTION(test.find_first_of(u8"asdaa", 10), std::out_of_range);
+        ACC_ASSERT_EXCEPTION(test.find_first_of(u8"asdaa", 10), std::out_of_range);
+        
+        ACC_ASSERT(test.find_first_not_of(u8"こんにちは") == 5);
+        ACC_ASSERT(test.find_first_not_of(test) == utf8::string::npos);
+        ACC_ASSERT_EXCEPTION(test.find_first_not_of(u8"a", 10), std::out_of_range);
         
         utf8::string test4 = u8"かきくけこかきくけこ";
         ACC_ASSERT(test4.find_last_of(u8"きくけ") == 8);
         ACC_ASSERT(test4.find_last_of(u8"こきくけ") == 9);
         ACC_ASSERT(test4.find_last_of(u8"こきくけ", 4) == 4);
         
-        ACC_ASSERT(test.find_last_of(u8"abcd") == utf8::string::npos);
+        ACC_ASSERT(test4.find_last_of(u8"abcd") == utf8::string::npos);
         
-        ACC_ASSERT_EXCEPTION(test.find_last_of(u8"きくけ", 10), std::out_of_range);
+        ACC_ASSERT_EXCEPTION(test4.find_last_of(u8"きくけ", 10), std::out_of_range);
+
+        ACC_ASSERT(test4.find_last_not_of(u8"かきくけ") == 9);
+        ACC_ASSERT(test4.find_last_not_of(u8"かきくけ", 8) == 4);
+        ACC_ASSERT(test4.find_last_not_of(test4) == utf8::string::npos);
+        ACC_ASSERT_EXCEPTION(test4.find_last_not_of(u8"a", 10), std::out_of_range);
 
         ACC_ASSERT(test.substr(2) == u8"にちは　世界！😂");
         ACC_ASSERT(test.substr(4) == u8"は　世界！😂");

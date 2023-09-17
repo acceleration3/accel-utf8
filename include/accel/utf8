@@ -522,6 +522,32 @@ namespace accel
 				return npos;
 			}
 
+			std::size_t find_first_not_of(const string& codepoints, std::size_t position = 0)
+			{
+				if (position >= m_length)
+					throw std::out_of_range("Trying to search past the string length.");
+
+				for (auto string_it = cbegin() + position; string_it != cend(); string_it++)
+				{
+					bool matches = false;
+					for (auto codepoint_it = codepoints.cbegin(); codepoint_it != codepoints.cend(); codepoint_it++)
+					{
+						if (*codepoint_it == *string_it)
+						{
+							matches = true;
+							break;
+						}
+					}
+
+					if (!matches)
+						return position;
+
+					position++;
+				}
+
+				return npos;
+			}
+
 			std::size_t find_last_of(const string& codepoints, std::size_t position = npos)
 			{
 				if (position != npos)
@@ -541,6 +567,39 @@ namespace accel
 						if (*codepoint_it == *string_it)
 							return position;
 					}
+					position--;
+				}
+
+				return npos;
+			}
+
+			std::size_t find_last_not_of(const string& codepoints, std::size_t position = npos)
+			{
+				if (position != npos)
+				{
+					if (position >= m_length)
+						throw std::out_of_range("Trying to search past the string length.");
+				}
+				else
+				{
+					position = m_length - 1;
+				}
+
+				for (auto string_it = cbegin() + position; string_it != cbegin(); string_it--)
+				{
+					bool matches = false;
+					for (auto codepoint_it = codepoints.cbegin(); codepoint_it != codepoints.cend(); codepoint_it++)
+					{
+						if (*codepoint_it == *string_it)
+						{
+							matches = true;
+							break;
+						}
+					}
+
+					if (!matches)
+						return position;
+						
 					position--;
 				}
 
