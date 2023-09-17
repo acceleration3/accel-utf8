@@ -207,7 +207,7 @@ namespace accel
 			using pointer_type = string*;
 			using reference_type = string&;
 
-			string_iterator(const std::string& str, std::size_t index = 0) :
+			string_iterator(const char* str, std::size_t index = 0) :
 				m_str(str),
 				m_index(index) {}
 
@@ -287,7 +287,7 @@ namespace accel
 			int get_index() const { return m_index; }
 
 		private:
-			const std::string& m_str;
+			const char* m_str;
 			std::size_t m_index;
 
 			difference_type get_codepoint_advance(std::size_t index) const
@@ -427,18 +427,18 @@ namespace accel
 			bool operator==(const std::string& str) const { return m_str == str; }
 			bool operator!=(const std::string& str) const { return m_str != str; }
 
-			iterator begin() { return iterator(m_str); }
-			iterator end() { return iterator(m_str, data_size()); }
-			const_iterator begin() const { return const_iterator(m_str); }
-			const_iterator end() const { return const_iterator(m_str, data_size()); }
+			iterator begin() { return iterator(m_str.data()); }
+			iterator end() { return iterator(m_str.data(), data_size()); }
+			const_iterator begin() const { return const_iterator(m_str.data()); }
+			const_iterator end() const { return const_iterator(m_str.data(), data_size()); }
 
-			iterator rbegin() { return iterator(m_str, data_size()); }
-			iterator rend() { return iterator(m_str); }
-			const_iterator rbegin() const { return const_iterator(m_str, data_size()); }
-			const_iterator rend() const { return const_iterator(m_str); }
+			iterator rbegin() { return iterator(m_str.data(), data_size()); }
+			iterator rend() { return iterator(m_str.data()); }
+			const_iterator rbegin() const { return const_iterator(m_str.data(), data_size()); }
+			const_iterator rend() const { return const_iterator(m_str.data()); }
 
-			const_iterator cbegin() const { return const_iterator(m_str); }
-			const_iterator cend() const { return const_iterator(m_str, data_size()); }
+			const_iterator cbegin() const { return const_iterator(m_str.data()); }
+			const_iterator cend() const { return const_iterator(m_str.data(), data_size()); }
 
 			std::size_t data_size() const { return m_str.size(); }
 			std::size_t length() const { return m_length; }
@@ -620,8 +620,13 @@ namespace accel
 		string string_iterator::operator*() const
 		{
 			unsigned char first_byte = m_str[m_index];
-			auto portion = m_str.substr(m_index, details::utf8_first_byte_lut[first_byte]);
-			return string(portion);
+			std::size_t length = details::utf8_first_byte_lut[first_byte];
+			
+			char buffer[length + 1] = {0};
+			for (std::size_t i = 0; i < length; i++)
+				buffer[i] = m_str[m_index + i];
+			
+			return string(buffer);
 		}
 	}
 }
