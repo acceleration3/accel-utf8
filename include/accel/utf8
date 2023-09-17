@@ -477,7 +477,7 @@ namespace accel
 				return string(m_str.substr(begin_it.get_index(), byte_length));
 			}
 
-			std::size_t find(const string& pattern, std::size_t position = 0)
+			std::size_t find(const string& pattern, std::size_t position = 0) const
 			{
 				if (position + pattern.length() > m_length)
 					throw std::out_of_range("Trying to search past the string length.");
@@ -504,7 +504,7 @@ namespace accel
 				return npos;
 			}
 
-			std::size_t find_first_of(const string& codepoints, std::size_t position = 0)
+			std::size_t find_first_of(const string& codepoints, std::size_t position = 0) const
 			{
 				if (position >= m_length)
 					throw std::out_of_range("Trying to search past the string length.");
@@ -522,7 +522,7 @@ namespace accel
 				return npos;
 			}
 
-			std::size_t find_first_not_of(const string& codepoints, std::size_t position = 0)
+			std::size_t find_first_not_of(const string& codepoints, std::size_t position = 0) const
 			{
 				if (position >= m_length)
 					throw std::out_of_range("Trying to search past the string length.");
@@ -548,7 +548,7 @@ namespace accel
 				return npos;
 			}
 
-			std::size_t find_last_of(const string& codepoints, std::size_t position = npos)
+			std::size_t find_last_of(const string& codepoints, std::size_t position = npos) const
 			{
 				if (position != npos)
 				{
@@ -573,7 +573,7 @@ namespace accel
 				return npos;
 			}
 
-			std::size_t find_last_not_of(const string& codepoints, std::size_t position = npos)
+			std::size_t find_last_not_of(const string& codepoints, std::size_t position = npos) const
 			{
 				if (position != npos)
 				{
