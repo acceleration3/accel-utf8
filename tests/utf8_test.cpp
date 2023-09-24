@@ -1,4 +1,5 @@
 ﻿#include <iostream>
+#include <vector>
 
 #include <accel/utf8>
 
@@ -41,6 +42,17 @@ int main(int argc, char* argv[])
         ACC_ASSERT_EXCEPTION(test.find_first_not_of(u8"a", 10), std::out_of_range);
         
         utf8::string test4 = u8"かきくけこかきくけこ";
+
+        {
+            auto temp = test4;
+            temp.replace(0, 2, u8"くけ");
+            ACC_ASSERT(temp == u8"くけくけこかきくけこ");
+            temp.replace(5, 3, u8"く");
+            ACC_ASSERT(temp == u8"くけくけこくけこ");
+            temp.replace(3, 1, u8"くくくくくくく");
+            ACC_ASSERT(temp == u8"くけくくくくくくくくこくけこ");
+        }
+
         ACC_ASSERT(test4.find_last_of(u8"きくけ") == 8);
         ACC_ASSERT(test4.find_last_of(u8"こきくけ") == 9);
         ACC_ASSERT(test4.find_last_of(u8"こきくけ", 4) == 4);

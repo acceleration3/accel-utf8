@@ -322,7 +322,6 @@ namespace accel
 		{
 		public:
 			using iterator = string_iterator;
-			using const_iterator = const string_iterator;
 
 			static constexpr const std::size_t npos = std::string::npos;
 
@@ -429,16 +428,16 @@ namespace accel
 
 			iterator begin() { return iterator(m_str.data()); }
 			iterator end() { return iterator(m_str.data(), data_size()); }
-			const_iterator begin() const { return const_iterator(m_str.data()); }
-			const_iterator end() const { return const_iterator(m_str.data(), data_size()); }
+			const iterator begin() const { return const_cast<string*>(this)->begin(); }
+			const iterator end() const { return const_cast<string*>(this)->end(); }
+			
+			const iterator cbegin() const { return begin(); }
+			const iterator cend() const { return end(); }
 
-			iterator rbegin() { return iterator(m_str.data(), data_size()); }
-			iterator rend() { return iterator(m_str.data()); }
-			const_iterator rbegin() const { return const_iterator(m_str.data(), data_size()); }
-			const_iterator rend() const { return const_iterator(m_str.data()); }
-
-			const_iterator cbegin() const { return const_iterator(m_str.data()); }
-			const_iterator cend() const { return const_iterator(m_str.data(), data_size()); }
+			iterator rbegin() { return end(); }
+			iterator rend() { return begin(); }
+			const iterator rbegin() const { return end(); }
+			const iterator rend() const { return begin(); }
 
 			std::size_t data_size() const { return m_str.size(); }
 			std::size_t length() const { return m_length; }
@@ -604,6 +603,21 @@ namespace accel
 				}
 
 				return npos;
+			}
+
+			string& replace(iterator begin, iterator end, const string& replacement)
+			{
+				std::size_t position = begin.get_index();
+				std::size_t length = end.get_index() - position;
+				m_str.replace(position, length, replacement.to_string());
+				return *this;
+			}
+
+			string& replace(std::size_t position, std::size_t length, const string& replacement)
+			{
+				auto begin_it = begin() + position;
+				auto end_it = begin_it + length;
+				return replace(begin_it, end_it, replacement);
 			}
 
 			void clear()
