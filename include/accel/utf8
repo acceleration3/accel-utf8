@@ -204,8 +204,8 @@ namespace accel
 			using iterator_category = std::bidirectional_iterator_tag;
 			using value_type = string;
 			using difference_type = std::ptrdiff_t;
-			using pointer_type = string*;
-			using reference_type = string&;
+			using pointer = string;
+			using reference = string;
 
 			string_iterator(const char* str, std::size_t index = 0) :
 				m_str(str),
@@ -322,6 +322,7 @@ namespace accel
 		{
 		public:
 			using iterator = string_iterator;
+			using reverse_iterator = std::reverse_iterator<iterator>;
 
 			static constexpr const std::size_t npos = std::string::npos;
 
@@ -434,10 +435,10 @@ namespace accel
 			const iterator cbegin() const { return begin(); }
 			const iterator cend() const { return end(); }
 
-			iterator rbegin() { return end(); }
-			iterator rend() { return begin(); }
-			const iterator rbegin() const { return end(); }
-			const iterator rend() const { return begin(); }
+			reverse_iterator rbegin() { return reverse_iterator(end()); }
+			reverse_iterator rend() { return reverse_iterator(begin()); }
+			const reverse_iterator rbegin() const { return reverse_iterator(end()); }
+			const reverse_iterator rend() const { return reverse_iterator(begin()); }
 
 			std::size_t data_size() const { return m_str.size(); }
 			std::size_t length() const { return m_length; }
@@ -559,7 +560,7 @@ namespace accel
 					position = m_length - 1;
 				}
 
-				for (auto string_it = cbegin() + position; string_it != cbegin(); string_it--)
+				for (auto string_it = rbegin(); string_it != rend(); string_it++)
 				{
 					for (auto codepoint_it = codepoints.cbegin(); codepoint_it != codepoints.cend(); codepoint_it++)
 					{
