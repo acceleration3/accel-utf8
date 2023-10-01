@@ -626,6 +626,8 @@ namespace accel
 				m_length = 0;
 			}
 
+			bool is_empty() const { return m_str.empty(); }
+
 		private:
 			std::string m_str;
 			std::size_t m_length;
