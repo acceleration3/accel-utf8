@@ -639,9 +639,11 @@ namespace accel
 			unsigned char first_byte = m_str[m_index];
 			std::size_t length = details::utf8_first_byte_lut[first_byte];
 			
-			char buffer[length + 1] = {0};
+			char buffer[length + 1];
 			for (std::size_t i = 0; i < length; i++)
 				buffer[i] = m_str[m_index + i];
+			
+			buffer[length] = 0;
 			
 			return string(buffer);
 		}
