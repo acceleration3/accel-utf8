@@ -3,12 +3,14 @@
 
 #include <string>
 
+#include <cstdint>
+
 #include <accel/macros>
 
 #if WCHAR_MAX > 0xFFFF
-#define IS_UTF32 1
+	#define IS_UTF32 1
 #else
-#define IS_UTF32 0
+	#define IS_UTF32 0
 #endif
 
 namespace accel
