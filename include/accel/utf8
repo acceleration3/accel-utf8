@@ -1,6 +1,7 @@
 #ifndef ACCEL_UTF8_HEADER
 #define ACCEL_UTF8_HEADER
 
+#include <stdexcept>
 #include <string>
 
 #include <cstdint>
@@ -41,7 +42,7 @@ namespace accel
 
 			const static int utf8_widen_mask_lut[4] = { 0b11111111, 0b00011111, 0b00001111, 0b00000111 };
 
-			inline std::string narrow(const std::wstring& wide_string)
+			static inline std::string narrow(const std::wstring& wide_string)
 			{
 				std::string narrow_string;
 
@@ -111,7 +112,7 @@ namespace accel
 				return narrow_string;
 			}
 
-			inline std::wstring widen(const std::string& string)
+			static inline std::wstring widen(const std::string& string)
 			{
 				std::wstring wide_string;
 				wide_string.reserve(string.length());
@@ -154,12 +155,12 @@ namespace accel
 				return wide_string;
 			}
 
-			inline bool is_continuation_byte(std::uint8_t byte)
+			static inline bool is_continuation_byte(std::uint8_t byte)
 			{
 				return (byte & 0xC0) == 0x80;
 			}
 
-			inline bool is_valid(const char* data, std::size_t length)
+			static inline bool is_valid(const char* data, std::size_t length)
 			{
 				for (std::size_t index = 0; index < length;)
 				{
@@ -184,7 +185,7 @@ namespace accel
 				return true;
 			}
 
-			inline std::size_t length(const char* data, std::size_t size)
+			static inline std::size_t length(const char* data, std::size_t size)
 			{
 				std::size_t length = 0;
 				for (std::size_t i = 0; i < size;)
@@ -196,6 +197,8 @@ namespace accel
 				}
 				return length;
 			}
+
+
 		}
 
 		class string;
@@ -467,10 +470,10 @@ namespace accel
 				if (start >= m_length)
 					throw std::out_of_range("Start is greater than the string's length.");
 				
+				length = (length == npos ? m_length - start : length);
+				
 				if (start + length > m_length)
 					throw std::out_of_range("Start + length goes past the string's length.");
-				
-				length = (length == npos ? m_length - start : length);
 
 				auto begin_it = cbegin() + start;
 				auto end_it = begin_it + length;
@@ -552,6 +555,9 @@ namespace accel
 
 			std::size_t find_last_of(const string& codepoints, std::size_t position = npos) const
 			{
+				if (is_empty())
+					return npos;
+
 				if (position != npos)
 				{
 					if (position >= m_length)
@@ -561,22 +567,29 @@ namespace accel
 				{
 					position = m_length - 1;
 				}
-
-				for (auto string_it = rbegin(); string_it != rend(); string_it++)
+				
+				auto rbegin_it = rbegin() + (length() - position - 1);
+				if (rbegin_it < rend())
 				{
-					for (auto codepoint_it = codepoints.cbegin(); codepoint_it != codepoints.cend(); codepoint_it++)
+					for (auto string_it = rbegin_it; string_it != rend(); string_it++)
 					{
-						if (*codepoint_it == *string_it)
-							return position;
+						for (auto codepoint_it = codepoints.cbegin(); codepoint_it != codepoints.cend(); codepoint_it++)
+						{
+							if (*codepoint_it == *string_it)
+								return position;
+						}
+						position--;
 					}
-					position--;
 				}
 
-				return npos;
+				return std::string::npos;
 			}
 
 			std::size_t find_last_not_of(const string& codepoints, std::size_t position = npos) const
 			{
+				if (is_empty())
+					return npos;
+
 				if (position != npos)
 				{
 					if (position >= m_length)
@@ -586,23 +599,27 @@ namespace accel
 				{
 					position = m_length - 1;
 				}
-
-				for (auto string_it = cbegin() + position; string_it != cbegin(); string_it--)
+	
+				auto rbegin_it = rbegin() + (length() - position - 1);
+				if (rbegin_it < rend())
 				{
-					bool matches = false;
-					for (auto codepoint_it = codepoints.cbegin(); codepoint_it != codepoints.cend(); codepoint_it++)
+					for (auto string_it = rbegin_it; string_it != rend(); string_it++)
 					{
-						if (*codepoint_it == *string_it)
+						bool matches = false;
+						for (auto codepoint_it = codepoints.cbegin(); codepoint_it != codepoints.cend(); codepoint_it++)
 						{
-							matches = true;
-							break;
+							if (*codepoint_it == *string_it)
+							{
+								matches = true;
+								break;
+							}
 						}
-					}
 
-					if (!matches)
-						return position;
-						
-					position--;
+						if (!matches)
+							return position;
+							
+						position--;
+					}
 				}
 
 				return npos;

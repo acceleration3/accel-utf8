@@ -112,6 +112,7 @@ int main(int argc, char* argv[])
         test += test2;
 
         ACC_ASSERT(test == "hello world!hello world!");
+        ACC_ASSERT(test.find_last_of("h", 2) == 0);
     }
 
     {
