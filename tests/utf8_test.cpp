@@ -1,4 +1,5 @@
-﻿#include <iostream>
+﻿#include "accel/macros"
+#include <iostream>
 #include <vector>
 
 #include <accel/utf8>
@@ -79,8 +80,8 @@ int main(int argc, char* argv[])
         ACC_ASSERT(test != test3);
         ACC_ASSERT(test != u8"こんにちは　世界！😀");
 
-        ACC_ASSERT(test.length() == 10);
-        ACC_ASSERT(test.data_size() == 31);
+        ACC_ASSERT(test.get_length() == 10);
+        ACC_ASSERT(test.get_data_size() == 31);
         ACC_ASSERT(!test.is_ascii());
 
         ACC_ASSERT(test[0] == u8"こ");
@@ -119,7 +120,7 @@ int main(int argc, char* argv[])
         std::wstring wide = L"This is a wide string! 日本語　👺";
         utf8::string test(wide);
 
-        ACC_ASSERT(test.length() == 28);
+        ACC_ASSERT(test.get_length() == 28);
         ACC_ASSERT(test.to_wstring() == wide);
         ACC_ASSERT(!test.is_ascii());
 
@@ -139,6 +140,9 @@ int main(int argc, char* argv[])
         ACC_ASSERT(!test.is_ascii());
 
         auto it = test.begin();
+
+        test = test + "a" + u8"a" + L"a";
+        ACC_ASSERT(test == u8"testあaaa");
     }
 
     std::cout << "All UTF-8 tests passed.\n";

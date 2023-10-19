@@ -197,8 +197,6 @@ namespace accel
 				}
 				return length;
 			}
-
-
 		}
 
 		class string;
@@ -303,7 +301,6 @@ namespace accel
 
 			difference_type get_codepoint_retreat(std::size_t index) const
 			{
-				// Already at the beginning of the string, no need to retreat
 				if (m_index == 0)
 					return 0;
 
@@ -333,51 +330,98 @@ namespace accel
 
 			string() : m_str{} {}
 
-			explicit string(const std::wstring& wide_string) : m_str(details::narrow(wide_string))
-			{
-				if (!details::is_valid(m_str.c_str(), m_str.length()))
-					throw std::runtime_error("Invalid UTF-8 string.");
+			explicit string(const std::wstring& wide_string) : 
+				m_str(details::narrow(wide_string)),
+				m_length(details::length(m_str.c_str(), m_str.size())) {}
 
-				m_length = details::length(m_str.c_str(), m_str.length());
-			}
+			explicit string(const std::string& str) :
+				m_str(str),
+				m_length(details::length(m_str.c_str(), m_str.size())) {}
 
-			explicit string(const std::string& str) : m_str(str)
-			{
-				if (!details::is_valid(m_str.c_str(), m_str.length()))
-					throw std::runtime_error("Invalid UTF-8 string.");
+			explicit string(const char* memory) :
+				m_str(memory),
+				m_length(details::length(m_str.c_str(), m_str.size())) {}
 
-				m_length = details::length(m_str.c_str(), m_str.length());
-			}
-
-			explicit string(const char* memory) : m_str(memory)
-			{
-				if (!details::is_valid(m_str.c_str(), m_str.length()))
-					throw std::runtime_error("Invalid UTF-8 string.");
-
-				m_length = details::length(m_str.c_str(), m_str.length());
-			}
+			explicit string(const wchar_t* memory) :
+				m_str(details::narrow(memory)),
+				m_length(details::length(m_str.c_str(), m_str.size())) {}
 
 			template<std::size_t Size>
-			string(const char(&str)[Size]) : m_str(str)
-			{
-				if (!details::is_valid(m_str.c_str(), m_str.length()))
-					throw std::runtime_error("Invalid UTF-8 string.");
-
-				m_length = details::length(m_str.c_str(), m_str.length());
-			}
+			string(const char(&str)[Size]) :
+				m_str(str),
+				m_length(details::length(m_str.c_str(), m_str.size())) {}
 
 			template<std::size_t Size>
-			string(const wchar_t(&str)[Size]) : m_str(details::narrow(str))
-			{
-				m_length = details::length(m_str.c_str(), m_str.length());
-			}
+			string(const wchar_t(&str)[Size]) :
+				m_str(details::narrow(str)),
+				m_length(details::length(m_str.c_str(), m_str.size())) {}
 
 			ACC_DEFAULT_COPYABLE(string);
 			ACC_DEFAULT_MOVABLE(string);
 
+			string& operator=(const std::wstring& other)
+			{
+				m_str = details::narrow(other);
+				m_length = details::length(m_str.c_str(), m_str.size());
+				return *this;
+			}
+
+			string& operator=(const std::string& other)
+			{
+				m_str = other;
+				m_length = details::length(m_str.c_str(), m_str.size());
+				return *this;
+			}
+
+			string& operator=(const char* other)
+			{
+				m_str = other;
+				m_length = details::length(m_str.c_str(), m_str.size());
+				return *this;
+			}
+
+			string& operator=(const wchar_t* other)
+			{
+				m_str = details::narrow(other);
+				m_length = details::length(m_str.c_str(), m_str.size());
+				return *this;
+			}
+
+			template<std::size_t Size>
+			string& operator=(const char(&other)[Size])
+			{
+				m_str = other;
+				m_length = details::length(m_str.c_str(), m_str.size());
+				return *this;
+			}
+
+			template<std::size_t Size>
+			string& operator=(const wchar_t(&other)[Size])
+			{
+				m_str = details::narrow(other);
+				m_length = details::length(m_str.c_str(), m_str.size());
+				return *this;
+			}
+
 			string operator+(const string& other) const { return string(m_str + other.m_str); }
 			string operator+(const std::string& other) const { return string(m_str + other); }
 			string operator+(const std::wstring& other) const { return string(m_str + details::narrow(other)); }
+
+			template<std::size_t Size>
+			string operator+(const char(&other)[Size])
+			{
+				m_str += other;
+				m_length += details::length(m_str.c_str(), m_str.size());
+				return *this;
+			}
+
+			template<std::size_t Size>
+			string operator+(const wchar_t(&other)[Size])
+			{
+				m_str += details::narrow(other);
+				m_length += details::length(m_str.c_str(), m_str.size());
+				return *this;
+			}
 
 			void operator+=(const string& other)
 			{
@@ -387,8 +431,6 @@ namespace accel
 
 			void operator+=(const std::string& other)
 			{
-				if (!details::is_valid(other.c_str(), other.length()))
-					throw std::runtime_error("Invalid UTF-8 string.");
 				m_length += details::length(other.data(), other.length());
 				m_str += other;
 			}
@@ -402,8 +444,6 @@ namespace accel
 			template<std::size_t Size>
 			void operator+=(const char(&str)[Size])
 			{
-				if (!details::is_valid(str, Size - 1))
-					throw std::runtime_error("Invalid UTF-8 string.");
 				m_str += str;
 				m_length += details::length(str, Size - 1);
 			}
@@ -423,8 +463,8 @@ namespace accel
 				return string(m_str.substr(real_index, details::utf8_first_byte_lut[first_byte]));
 			}
 
-			bool operator==(const string& other) const { return length() == other.length() && m_str == other.m_str; }
-			bool operator!=(const string& other) const { return length() != other.length() || m_str != other.m_str; }
+			bool operator==(const string& other) const { return get_length() == other.get_length() && m_str == other.m_str; }
+			bool operator!=(const string& other) const { return get_length() != other.get_length() || m_str != other.m_str; }
 
 			bool operator==(const char* memory) const { return m_str == memory; }
 			bool operator!=(const char* memory) const { return m_str != memory; }
@@ -433,7 +473,7 @@ namespace accel
 			bool operator!=(const std::string& str) const { return m_str != str; }
 
 			iterator begin() { return iterator(m_str.data()); }
-			iterator end() { return iterator(m_str.data(), data_size()); }
+			iterator end() { return iterator(m_str.data(), get_data_size()); }
 			const iterator begin() const { return const_cast<string*>(this)->begin(); }
 			const iterator end() const { return const_cast<string*>(this)->end(); }
 			
@@ -445,11 +485,11 @@ namespace accel
 			const reverse_iterator rbegin() const { return reverse_iterator(end()); }
 			const reverse_iterator rend() const { return reverse_iterator(begin()); }
 
-			std::size_t data_size() const { return m_str.size(); }
-			std::size_t length() const { return m_length; }
+			std::size_t get_data_size() const { return m_str.size(); }
+			std::size_t get_length() const { return m_length; }
 
-			const char* data() const { return &m_str[0]; }
-			char* data() { return &m_str[0]; }
+			const char* get_data() const { return &m_str[0]; }
+			char* get_data() { return &m_str[0]; }
 
 			bool is_ascii() const
 			{
@@ -484,7 +524,7 @@ namespace accel
 
 			std::size_t find(const string& pattern, std::size_t position = 0) const
 			{
-				if (position + pattern.length() > m_length)
+				if (position + pattern.get_length() > m_length)
 					throw std::out_of_range("Trying to search past the string length.");
 				
 				for (auto string_it = cbegin() + position; string_it != cend(); string_it++)
@@ -568,7 +608,7 @@ namespace accel
 					position = m_length - 1;
 				}
 				
-				auto rbegin_it = rbegin() + (length() - position - 1);
+				auto rbegin_it = rbegin() + (get_length() - position - 1);
 				if (rbegin_it < rend())
 				{
 					for (auto string_it = rbegin_it; string_it != rend(); string_it++)
@@ -600,7 +640,7 @@ namespace accel
 					position = m_length - 1;
 				}
 	
-				auto rbegin_it = rbegin() + (length() - position - 1);
+				auto rbegin_it = rbegin() + (get_length() - position - 1);
 				if (rbegin_it < rend())
 				{
 					for (auto string_it = rbegin_it; string_it != rend(); string_it++)
